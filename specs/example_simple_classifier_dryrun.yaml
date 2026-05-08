@@ -18,6 +18,8 @@ model:
 conversion:
   strategy: full_model
   target_format: onnx
+  opset: 18
+  output_path: artifacts/simple_classifier_dryrun/model.onnx
 
 input:
   name: input

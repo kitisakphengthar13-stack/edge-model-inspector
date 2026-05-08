@@ -6,6 +6,7 @@ generic `spec.yaml` files that describe how a model should be handled in future
 conversion phases. Phase 3 adds a safe loading plan layer and checkpoint-only
 loading utilities. Phase 4 adds trusted local model dry-runs for checking model
 instantiation, checkpoint loading, dummy input creation, and forward execution.
+Phase 5 adds PyTorch-to-ONNX export.
 
 The current goal is to understand checkpoint contents and define the missing
 conversion contract. It does not export ONNX, build TensorRT engines, run a web
@@ -55,6 +56,12 @@ python -m converter.cli dry-run-model specs/example_classification.yaml --allow-
 python -m converter.cli dry-run-model specs/example_classification.yaml --allow-imports --prefix-to-strip model.
 python -m converter.cli dry-run-model specs/example_custom_model.yaml --allow-imports
 python -m converter.cli dry-run-model specs/example_patchcore_cable.yaml --allow-imports
+
+python -m converter.cli export-onnx specs/example_simple_classifier_dryrun.yaml
+python -m converter.cli export-onnx specs/example_simple_classifier_dryrun.yaml --allow-imports
+python -m converter.cli export-onnx specs/example_simple_classifier_dryrun.yaml --allow-imports --output artifacts/simple_classifier_dryrun/simple_classifier.onnx
+python -m converter.cli export-onnx specs/example_custom_model.yaml --allow-imports
+python -m converter.cli export-onnx specs/example_patchcore_cable.yaml --allow-imports
 ```
 
 By default, the CLI tries PyTorch safe loading with `weights_only=True` when the
@@ -160,6 +167,38 @@ The repository includes `specs/example_simple_classifier_dryrun.yaml` and a tiny
 `checkpoint.kind: none`, so dry-run uses randomly initialized weights and does
 not load a checkpoint.
 
+## ONNX Export
+
+`export-onnx` is the first command that writes an ONNX artifact. It still
+requires `--allow-imports` because it imports local model code and instantiates
+the class declared in the spec.
+
+The command validates the spec, instantiates the model, optionally loads a
+checkpoint, creates a dummy input, runs a forward pass, and then calls
+`torch.onnx.export`. It uses `spec.input.name` and `spec.output.names` for ONNX
+I/O names, and uses `conversion.opset` unless `--opset` is provided. Output path
+priority is `--output`, then `conversion.output_path`, then
+`artifacts/<spec.name>/model.onnx`.
+
+Actual ONNX export requires the `onnx` and `onnxscript` packages listed in
+`requirements.txt`. ONNX Runtime validation is intentionally not included yet;
+it is planned for a later phase. TensorRT engine building is also intentionally
+not included in Phase 5.
+
+Expected behavior:
+
+- without `--allow-imports`, export refuses
+- the simple classifier demo exports successfully
+- custom loader and custom wrapper specs are refused until implemented
+- PatchCore-style specs need a framework-specific loader or module/class before
+  export
+- ONNX Runtime validation is planned for a later phase
+
+Phase 5 does not validate ONNX with ONNX Runtime, does not build TensorRT, and
+does not execute `custom_loader` or `custom_wrapper` code. The exporter remains
+generic and is not specific to YOLO, Anomalib, PatchCore, classification, or any
+other model family.
+
 ## Conversion Strategies
 
 - `full_model`: use when the model forward can be exported directly.
@@ -175,6 +214,6 @@ not load a checkpoint.
 - Phase 3: generic model loading plan and checkpoint loading utilities
 - Phase 4: safe model instantiation and dry-run forward execution
 - Phase 5: PyTorch to ONNX export
-- Phase 6: ONNX validation
+- Phase 6: ONNX Runtime validation
 - Phase 7: TensorRT build on Jetson target devices
 - Phase 8: benchmarking and deployment metadata

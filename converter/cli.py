@@ -14,6 +14,7 @@ from .checkpoint import (
 from .dry_run import run_model_dry_run
 from .inspect_pt import inspect_checkpoint
 from .load_plan import print_loading_plan
+from .onnx_export import export_onnx_from_spec
 from .spec import SpecValidationResult, print_validation_result, validate_spec_file
 from .utils import print_section
 
@@ -116,6 +117,53 @@ def build_parser() -> argparse.ArgumentParser:
         help="Dry-run device. Phase 4 supports only cpu.",
     )
     dry_run_parser.set_defaults(func=dry_run_model_command)
+
+    export_parser = subparsers.add_parser(
+        "export-onnx",
+        help="Export a trusted local PyTorch model described by a spec to ONNX.",
+    )
+    export_parser.add_argument("path", help="Path to the YAML spec file.")
+    export_parser.add_argument(
+        "--allow-imports",
+        action="store_true",
+        help="Allow importing and instantiating the model module declared in the spec.",
+    )
+    export_parser.add_argument("--output", help="Output ONNX path.")
+    export_parser.add_argument("--opset", type=int, help="Override conversion.opset.")
+    export_strict_group = export_parser.add_mutually_exclusive_group()
+    export_strict_group.add_argument(
+        "--strict",
+        dest="strict",
+        action="store_true",
+        default=None,
+        help="Force strict state_dict loading.",
+    )
+    export_strict_group.add_argument(
+        "--no-strict",
+        dest="strict",
+        action="store_false",
+        help="Allow missing or unexpected state_dict keys.",
+    )
+    export_parser.add_argument(
+        "--prefix-to-strip",
+        help="Override checkpoint.prefix_to_strip before loading state_dict.",
+    )
+    export_parser.add_argument(
+        "--device",
+        default="cpu",
+        help="Export device. Phase 5 supports only cpu.",
+    )
+    export_parser.add_argument(
+        "--no-dynamo",
+        action="store_true",
+        help="Use the legacy torch.onnx exporter directly.",
+    )
+    export_parser.add_argument(
+        "--no-fallback-legacy",
+        action="store_true",
+        help="Do not retry legacy export if dynamo export fails.",
+    )
+    export_parser.set_defaults(func=export_onnx_command)
 
     return parser
 
@@ -247,6 +295,29 @@ def dry_run_model_command(args: argparse.Namespace) -> int:
         prefix_to_strip=args.prefix_to_strip,
         device=args.device,
     )
+
+
+def export_onnx_command(args: argparse.Namespace) -> int:
+    try:
+        result = export_onnx_from_spec(
+            str(args.path),
+            output_path=args.output,
+            allow_imports=args.allow_imports,
+            opset=args.opset,
+            strict=args.strict,
+            prefix_to_strip=args.prefix_to_strip,
+            device=args.device,
+            dynamo=not args.no_dynamo,
+            fallback_legacy=not args.no_fallback_legacy,
+        )
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
+    print_section("Export result")
+    for key, value in result.items():
+        print(f"{key}: {value}")
+    return 0
 
 
 def _validate_spec_or_report(path: Path) -> SpecValidationResult | None:
