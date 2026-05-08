@@ -1,0 +1,20 @@
+targets:
+  generic:
+    description: Generic TensorRT target
+    default_precision: fp16
+    workspace_mb: 2048
+
+  orin_nano:
+    description: NVIDIA Jetson Orin Nano
+    default_precision: fp16
+    workspace_mb: 2048
+
+  orin_nx:
+    description: NVIDIA Jetson Orin NX
+    default_precision: fp16
+    workspace_mb: 4096
+
+  xavier:
+    description: NVIDIA Jetson Xavier series
+    default_precision: fp16
+    workspace_mb: 2048

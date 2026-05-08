@@ -9,6 +9,7 @@ instantiation, checkpoint loading, dummy input creation, and forward execution.
 Phase 5 adds PyTorch-to-ONNX export.
 Phase 6 validates exported ONNX artifacts with ONNX checker and ONNX Runtime CPU
 inference.
+Phase 7 generates TensorRT build plans without running TensorRT.
 
 The current goal is to understand checkpoint contents, define the missing
 conversion contract, export ONNX when explicitly requested, and validate ONNX
@@ -70,6 +71,11 @@ python -m converter.cli validate-onnx artifacts/simple_classifier_dryrun/model.o
 python -m converter.cli validate-onnx artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml
 python -m converter.cli validate-onnx artifacts/simple_classifier_dryrun/simple_classifier.onnx --spec specs/example_simple_classifier_dryrun.yaml
 python -m converter.cli validate-onnx path/to/model.onnx --input-shape 1,3,224,224 --input-dtype float32 --input-name input
+
+python -m converter.cli plan-tensorrt artifacts/simple_classifier_dryrun/model.onnx
+python -m converter.cli plan-tensorrt artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml --target orin_nano --precision fp16
+python -m converter.cli plan-tensorrt artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml --target orin_nano --precision fp16 --workspace-mb 2048
+python -m converter.cli plan-tensorrt artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml --target orin_nano --precision fp16 --min-shape 1x3x2x2 --opt-shape 1x3x2x2 --max-shape 4x3x2x2
 ```
 
 By default, the CLI tries PyTorch safe loading with `weights_only=True` when the
@@ -231,6 +237,29 @@ and does not execute custom loaders or wrappers. Phase 6 supports single-input
 ONNX models first. PyTorch-vs-ONNX numerical comparison and TensorRT build are
 planned later.
 
+## TensorRT Planning
+
+`plan-tensorrt` generates a TensorRT `trtexec` build plan from an ONNX file. It
+does not run `trtexec`, does not require TensorRT, does not require Jetson
+hardware, and does not create engine files or directories. ONNX is the portable
+artifact; TensorRT engines should be built on the actual target device or a
+matching runtime environment and treated as target-specific.
+
+Precision behavior:
+
+- `fp32`: no TensorRT precision flag
+- `fp16`: adds `--fp16`
+- `int8`: adds `--int8`, but calibration or explicit quantization is not
+  implemented yet
+
+When dynamic shapes are needed, provide all three shape flags plus an input name
+from the spec or CLI. The planner accepts `1x3x224x224` and comma format such as
+`1,3,224,224`, then emits TensorRT `x` format.
+
+Future Phase 8 `build-tensorrt` should run on Jetson or the actual target
+runtime, check `trtexec` availability, execute the generated command, and save
+the engine, logs, and metadata.
+
 ## Conversion Strategies
 
 - `full_model`: use when the model forward can be exported directly.
@@ -247,5 +276,6 @@ planned later.
 - Phase 4: safe model instantiation and dry-run forward execution
 - Phase 5: PyTorch to ONNX export
 - Phase 6: ONNX graph validation and ONNX Runtime inference check
-- Phase 7: TensorRT build on Jetson target devices
-- Phase 8: benchmarking and deployment metadata
+- Phase 7: TensorRT build planning
+- Phase 8: TensorRT build on Jetson target devices
+- Phase 9: benchmarking and deployment metadata

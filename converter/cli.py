@@ -17,6 +17,7 @@ from .load_plan import print_loading_plan
 from .onnx_export import export_onnx_from_spec
 from .onnx_validate import parse_cli_shape, validate_onnx_file
 from .spec import SpecValidationResult, print_validation_result, validate_spec_file
+from .tensorrt_plan import create_tensorrt_plan
 from .utils import print_section
 
 
@@ -185,6 +186,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum number of inputs, outputs, or summaries to print. Default: 20.",
     )
     validate_onnx_parser.set_defaults(func=validate_onnx_command)
+
+    plan_tensorrt_parser = subparsers.add_parser(
+        "plan-tensorrt",
+        help="Generate a TensorRT trtexec build plan without running TensorRT.",
+    )
+    plan_tensorrt_parser.add_argument("path", help="Path to the ONNX file.")
+    plan_tensorrt_parser.add_argument("--spec", help="Optional spec.yaml path.")
+    plan_tensorrt_parser.add_argument(
+        "--target",
+        default="generic",
+        help="Target device/runtime label. Default: generic.",
+    )
+    plan_tensorrt_parser.add_argument(
+        "--precision",
+        default="fp16",
+        help="TensorRT precision: fp32, fp16, or int8. Default: fp16.",
+    )
+    plan_tensorrt_parser.add_argument("--engine-output", help="Planned engine path.")
+    plan_tensorrt_parser.add_argument(
+        "--workspace-mb",
+        type=int,
+        help="TensorRT workspace size in MB.",
+    )
+    plan_tensorrt_parser.add_argument("--input-name", help="Input name for dynamic shapes.")
+    plan_tensorrt_parser.add_argument("--min-shape", help="Dynamic min shape, e.g. 1x3x224x224.")
+    plan_tensorrt_parser.add_argument("--opt-shape", help="Dynamic opt shape, e.g. 1x3x224x224.")
+    plan_tensorrt_parser.add_argument("--max-shape", help="Dynamic max shape, e.g. 4x3x224x224.")
+    plan_tensorrt_parser.add_argument("--timing-cache", help="TensorRT timing cache file path.")
+    plan_tensorrt_parser.add_argument(
+        "--verbose-trtexec",
+        action="store_true",
+        help="Include --verbose in the generated trtexec command.",
+    )
+    plan_tensorrt_parser.set_defaults(func=plan_tensorrt_command)
 
     return parser
 
@@ -361,6 +396,32 @@ def validate_onnx_command(args: argparse.Namespace) -> int:
         return 2
 
     print_section("Validation result")
+    for key, value in result.items():
+        print(f"{key}: {value}")
+    return 0
+
+
+def plan_tensorrt_command(args: argparse.Namespace) -> int:
+    try:
+        result = create_tensorrt_plan(
+            args.path,
+            spec_path=args.spec,
+            target=args.target,
+            precision=args.precision,
+            engine_output=args.engine_output,
+            workspace_mb=args.workspace_mb,
+            min_shape=args.min_shape,
+            opt_shape=args.opt_shape,
+            max_shape=args.max_shape,
+            input_name=args.input_name,
+            timing_cache=args.timing_cache,
+            verbose=args.verbose_trtexec,
+        )
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
+    print_section("Plan result")
     for key, value in result.items():
         print(f"{key}: {value}")
     return 0
