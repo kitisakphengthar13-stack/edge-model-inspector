@@ -260,6 +260,12 @@ Future Phase 8 `build-tensorrt` should run on Jetson or the actual target
 runtime, check `trtexec` availability, execute the generated command, and save
 the engine, logs, and metadata.
 
+## Jetson TensorRT Build Notes
+
+PC can export and validate ONNX. Jetson or the matching target runtime should
+build the TensorRT engine. See [docs/JETSON.md](docs/JETSON.md) for transfer
+guidance and manual `trtexec` examples.
+
 ## Conversion Strategies
 
 - `full_model`: use when the model forward can be exported directly.
