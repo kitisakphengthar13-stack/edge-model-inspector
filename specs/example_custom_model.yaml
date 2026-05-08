@@ -1,0 +1,48 @@
+name: custom_research_model
+task: custom_transformer_detector
+framework: custom_pytorch
+checkpoint_path: models/custom_research_model.ckpt
+
+checkpoint:
+  kind: custom_checkpoint
+  load_mode: custom_loader
+  loader: custom_loaders.transformer_detector_loader
+
+model:
+  architecture: custom_transformer_detector
+  module: research_models.transformer_detector
+  class_name: TransformerDetector
+  kwargs:
+    hidden_dim: 256
+    num_queries: 100
+
+conversion:
+  strategy: custom_wrapper
+  wrapper: wrappers.transformer_detector_export_wrapper
+  target_format: onnx
+  notes:
+    - This model may need a custom forward wrapper before export.
+
+input:
+  name: images
+  shape: ["batch", 3, "height", "width"]
+  dtype: float32
+
+output:
+  names:
+    - boxes
+    - scores
+    - labels
+
+preprocessing:
+  image_layout: NCHW
+  normalize: true
+
+postprocessing:
+  decoder: custom_transformer_decoder
+  nms_required: true
+
+notes:
+  - This spec intentionally uses custom task, checkpoint kind, and loader values.
+  - validate-spec should warn but not fail.
+  - This proves the schema is extensible.

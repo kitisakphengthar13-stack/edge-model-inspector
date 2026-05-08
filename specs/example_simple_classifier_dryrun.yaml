@@ -1,0 +1,29 @@
+name: simple_classifier_dryrun
+task: classification
+checkpoint_path: null
+
+checkpoint:
+  kind: none
+  load_mode: none
+  strict: true
+
+model:
+  architecture: simple_classifier
+  module: model_zoo.simple_classifier.model
+  class_name: SimpleClassifier
+  kwargs:
+    in_features: 12
+    num_classes: 3
+
+conversion:
+  strategy: full_model
+  target_format: onnx
+
+input:
+  name: input
+  shape: [1, 3, 2, 2]
+  dtype: float32
+
+output:
+  names:
+    - logits

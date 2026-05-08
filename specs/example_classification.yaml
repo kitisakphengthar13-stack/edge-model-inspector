@@ -1,0 +1,34 @@
+name: generic_classifier
+task: classification
+checkpoint_path: models/generic_classifier.pth
+
+checkpoint:
+  kind: raw_state_dict
+  load_mode: safe_weights_only
+  state_dict_key: null
+
+model:
+  architecture: custom_classifier
+  module: model_zoo.classifier.model
+  class_name: ClassifierModel
+  kwargs:
+    num_classes: 10
+
+conversion:
+  strategy: full_model
+  target_format: onnx
+  opset: 17
+
+input:
+  name: input
+  shape: [1, 3, 224, 224]
+  dtype: float32
+
+output:
+  names:
+    - logits
+
+notes:
+  - This is only an example.
+  - The module and class_name are placeholders.
+  - validate-spec must not import this module.

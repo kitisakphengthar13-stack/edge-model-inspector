@@ -1,0 +1,46 @@
+name: patchcore_cable
+task: anomaly_detection
+description: Example only; this does not define the schema limits.
+framework: anomalib
+checkpoint_path: D:/data_use/model/anomaly_detection/results/cable/Patchcore/MVTecAD/cable/v0/weights/lightning/model.ckpt
+
+checkpoint:
+  kind: lightning_checkpoint
+  load_mode: unsafe_trusted_local
+  state_dict_key: state_dict
+
+model:
+  architecture: patchcore
+  backbone: wide_resnet50_2
+  layers:
+    - layer2
+    - layer3
+
+conversion:
+  strategy: feature_extractor_only
+  reason: PatchCore-style models may contain a large memory bank and post-processing thresholds, so exporting only the neural feature extractor may be more practical than exporting the entire runtime pipeline.
+
+input:
+  name: input
+  shape: [1, 3, 256, 256]
+  dtype: float32
+
+output:
+  names:
+    - layer2
+    - layer3
+
+runtime_assets:
+  memory_bank_key: model.memory_bank
+  postprocess_keys:
+    - post_processor._image_threshold
+    - post_processor._pixel_threshold
+    - post_processor.image_min
+    - post_processor.image_max
+    - post_processor.pixel_min
+    - post_processor.pixel_max
+
+notes:
+  - This is only an example spec.
+  - The input shape must be verified from the original training configuration before export.
+  - This example must not make the schema specific to PatchCore or Anomalib.
