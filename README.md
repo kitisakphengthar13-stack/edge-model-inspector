@@ -7,10 +7,13 @@ conversion phases. Phase 3 adds a safe loading plan layer and checkpoint-only
 loading utilities. Phase 4 adds trusted local model dry-runs for checking model
 instantiation, checkpoint loading, dummy input creation, and forward execution.
 Phase 5 adds PyTorch-to-ONNX export.
+Phase 6 validates exported ONNX artifacts with ONNX checker and ONNX Runtime CPU
+inference.
 
-The current goal is to understand checkpoint contents and define the missing
-conversion contract. It does not export ONNX, build TensorRT engines, run a web
-API, or assume any specific model family.
+The current goal is to understand checkpoint contents, define the missing
+conversion contract, export ONNX when explicitly requested, and validate ONNX
+artifacts. It does not build TensorRT engines, run a web API, or assume any
+specific model family.
 
 ## Why Inspection Matters
 
@@ -62,6 +65,11 @@ python -m converter.cli export-onnx specs/example_simple_classifier_dryrun.yaml 
 python -m converter.cli export-onnx specs/example_simple_classifier_dryrun.yaml --allow-imports --output artifacts/simple_classifier_dryrun/simple_classifier.onnx
 python -m converter.cli export-onnx specs/example_custom_model.yaml --allow-imports
 python -m converter.cli export-onnx specs/example_patchcore_cable.yaml --allow-imports
+
+python -m converter.cli validate-onnx artifacts/simple_classifier_dryrun/model.onnx
+python -m converter.cli validate-onnx artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml
+python -m converter.cli validate-onnx artifacts/simple_classifier_dryrun/simple_classifier.onnx --spec specs/example_simple_classifier_dryrun.yaml
+python -m converter.cli validate-onnx path/to/model.onnx --input-shape 1,3,224,224 --input-dtype float32 --input-name input
 ```
 
 By default, the CLI tries PyTorch safe loading with `weights_only=True` when the
@@ -121,9 +129,9 @@ wrapper likelihood, and status fields:
 - `can_instantiate_model`
 - `can_export_now`
 
-In Phase 3, `can_export_now` is always `no` because ONNX export is not
-implemented. `plan-load` never loads checkpoints, imports user modules,
-executes custom loaders, instantiates models, exports ONNX, or builds TensorRT.
+`plan-load` never loads checkpoints, imports user modules, executes custom
+loaders, instantiates models, exports ONNX, or builds TensorRT. Use
+`export-onnx` for actual ONNX export.
 
 ## Checkpoint Checks
 
@@ -199,6 +207,30 @@ does not execute `custom_loader` or `custom_wrapper` code. The exporter remains
 generic and is not specific to YOLO, Anomalib, PatchCore, classification, or any
 other model family.
 
+## ONNX Validation
+
+`validate-onnx` checks exported ONNX files before any TensorRT build step. It
+loads the artifact with `onnx`, runs `onnx.checker.check_model`, creates an ONNX
+Runtime `InferenceSession` with `CPUExecutionProvider`, builds a dummy input,
+and runs inference.
+
+The command prints ONNX metadata, model input and output metadata, available
+providers, inference status, and output summaries including shape, dtype, and
+basic numeric min/max/mean values when reasonable.
+
+Expected behavior:
+
+- ONNX checker should pass
+- ONNX Runtime session should load
+- dummy inference should run
+- output shape and dtype should be printed
+
+`validate-onnx` does not build TensorRT, does not compare numerically against
+PyTorch outputs yet, does not import user modules, does not load checkpoints,
+and does not execute custom loaders or wrappers. Phase 6 supports single-input
+ONNX models first. PyTorch-vs-ONNX numerical comparison and TensorRT build are
+planned later.
+
 ## Conversion Strategies
 
 - `full_model`: use when the model forward can be exported directly.
@@ -214,6 +246,6 @@ other model family.
 - Phase 3: generic model loading plan and checkpoint loading utilities
 - Phase 4: safe model instantiation and dry-run forward execution
 - Phase 5: PyTorch to ONNX export
-- Phase 6: ONNX Runtime validation
+- Phase 6: ONNX graph validation and ONNX Runtime inference check
 - Phase 7: TensorRT build on Jetson target devices
 - Phase 8: benchmarking and deployment metadata

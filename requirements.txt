@@ -2,3 +2,4 @@ torch
 pyyaml
 onnx
 onnxscript
+onnxruntime

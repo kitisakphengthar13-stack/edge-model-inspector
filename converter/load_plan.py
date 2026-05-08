@@ -83,7 +83,7 @@ def print_loading_plan(spec: dict[str, Any]) -> None:
     print("- This command does not load checkpoints.")
     print("- This command does not import user modules or instantiate models.")
     print("- This command does not execute custom loaders.")
-    print("- ONNX export is not implemented in Phase 4.")
+    print("- This command does not export ONNX; use export-onnx for export.")
     if checkpoint_kind not in KNOWN_CHECKPOINT_KINDS:
         print(f"- checkpoint.kind '{checkpoint_kind}' is custom/unknown and allowed.")
     if load_mode not in KNOWN_LOAD_MODES:

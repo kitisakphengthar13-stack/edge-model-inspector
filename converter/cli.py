@@ -15,6 +15,7 @@ from .dry_run import run_model_dry_run
 from .inspect_pt import inspect_checkpoint
 from .load_plan import print_loading_plan
 from .onnx_export import export_onnx_from_spec
+from .onnx_validate import parse_cli_shape, validate_onnx_file
 from .spec import SpecValidationResult, print_validation_result, validate_spec_file
 from .utils import print_section
 
@@ -164,6 +165,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not retry legacy export if dynamo export fails.",
     )
     export_parser.set_defaults(func=export_onnx_command)
+
+    validate_onnx_parser = subparsers.add_parser(
+        "validate-onnx",
+        help="Validate an ONNX file and run ONNX Runtime CPU inference.",
+    )
+    validate_onnx_parser.add_argument("path", help="Path to the ONNX file.")
+    validate_onnx_parser.add_argument("--spec", help="Optional spec.yaml path.")
+    validate_onnx_parser.add_argument(
+        "--input-shape",
+        help="Comma-separated concrete input shape, for example 1,3,224,224.",
+    )
+    validate_onnx_parser.add_argument("--input-dtype", help="Override input dtype.")
+    validate_onnx_parser.add_argument("--input-name", help="Override input name.")
+    validate_onnx_parser.add_argument(
+        "--max-items",
+        type=int,
+        default=20,
+        help="Maximum number of inputs, outputs, or summaries to print. Default: 20.",
+    )
+    validate_onnx_parser.set_defaults(func=validate_onnx_command)
 
     return parser
 
@@ -315,6 +336,31 @@ def export_onnx_command(args: argparse.Namespace) -> int:
         return 2
 
     print_section("Export result")
+    for key, value in result.items():
+        print(f"{key}: {value}")
+    return 0
+
+
+def validate_onnx_command(args: argparse.Namespace) -> int:
+    if args.max_items < 1:
+        print("Error: --max-items must be at least 1", file=sys.stderr)
+        return 1
+
+    try:
+        shape = parse_cli_shape(args.input_shape) if args.input_shape else None
+        result = validate_onnx_file(
+            args.path,
+            spec_path=args.spec,
+            input_shape=shape,
+            input_dtype=args.input_dtype,
+            input_name=args.input_name,
+            max_items=args.max_items,
+        )
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
+    print_section("Validation result")
     for key, value in result.items():
         print(f"{key}: {value}")
     return 0
