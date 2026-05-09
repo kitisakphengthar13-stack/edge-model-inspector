@@ -19,8 +19,6 @@ artifacts/*
 !artifacts/simple_classifier_dryrun/
 !artifacts/simple_classifier_dryrun/model.onnx
 !artifacts/simple_classifier_dryrun/simple_classifier.onnx
-!artifacts/patchcore_cable_coreset_0_1/
-!artifacts/patchcore_cable_coreset_0_1/model.onnx
 
 # Do not commit target-specific TensorRT/build artifacts.
 *.engine
