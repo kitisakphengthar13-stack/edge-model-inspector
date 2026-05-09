@@ -95,6 +95,12 @@ def print_loading_plan(spec: dict[str, Any]) -> None:
             "- The spec contains module/class hints, but automatic model "
             "instantiation is not performed by plan-load."
         )
+    elif strategy == "feature_extractor_only" and not (module and class_name):
+        print(
+            "- feature_extractor_only requires module/class information or a "
+            "framework-specific loader/wrapper. No import or instantiation is "
+            "attempted by plan-load."
+        )
     else:
         print(
             "- Model instantiation is not currently possible from this plan "

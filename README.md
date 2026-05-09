@@ -266,6 +266,13 @@ PC can export and validate ONNX. Jetson or the matching target runtime should
 build the TensorRT engine. See [docs/JETSON.md](docs/JETSON.md) for transfer
 guidance and manual `trtexec` examples.
 
+## Real PatchCore Checkpoint Testing
+
+A real PatchCore inspection/planning spec is available at
+`specs/patchcore_cable_coreset_0_1.yaml`. See
+[docs/PATCHCORE_REAL_TEST.md](docs/PATCHCORE_REAL_TEST.md). Direct export is
+expected to require future Anomalib/PatchCore-specific loader support.
+
 ## Conversion Strategies
 
 - `full_model`: use when the model forward can be exported directly.

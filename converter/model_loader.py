@@ -17,11 +17,24 @@ def can_instantiate_from_spec(spec: dict[str, Any]) -> tuple[bool, str]:
     if not isinstance(model, Mapping):
         return False, "model section must be a dictionary"
     if not model.get("module") or not model.get("class_name"):
-        return (
-            False,
-            "model instantiation requires model.module and model.class_name, "
-            "or a future framework-specific loader",
+        message = (
+            "Cannot instantiate model from spec because model.module and/or "
+            "model.class_name are missing. No ONNX export was performed."
         )
+        conversion = spec.get("conversion", {})
+        if isinstance(conversion, Mapping) and conversion.get("strategy") == "feature_extractor_only":
+            message += (
+                " feature_extractor_only requires module/class information or a "
+                "framework-specific loader/wrapper."
+            )
+        framework = spec.get("framework")
+        architecture = model.get("architecture")
+        if framework == "anomalib" or architecture == "patchcore":
+            message += (
+                " For PatchCore/Anomalib, implement a framework-specific loader "
+                "or export ONNX using Anomalib first."
+            )
+        return False, message
     return True, "model.module and model.class_name are present"
 
 
