@@ -30,7 +30,10 @@ def main(argv: list[str] | None = None) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m converter.cli",
-        description="Local tools for inspecting PyTorch checkpoint files.",
+        description=(
+            "Inspect PyTorch checkpoints, manage model specs, export ONNX, "
+            "and validate ONNX inference."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -189,7 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     plan_tensorrt_parser = subparsers.add_parser(
         "plan-tensorrt",
-        help="Generate a TensorRT trtexec build plan without running TensorRT.",
+        help="Generate a TensorRT/trtexec build plan without running TensorRT.",
     )
     plan_tensorrt_parser.add_argument("path", help="Path to the ONNX file.")
     plan_tensorrt_parser.add_argument("--spec", help="Optional spec.yaml path.")

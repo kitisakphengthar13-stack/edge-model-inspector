@@ -1,25 +1,29 @@
 # Real PatchCore Checkpoint Test
 
-This document is for testing a real Anomalib PatchCore checkpoint on the PC
-side.
+This document records the PC-side workflow for a real Anomalib PatchCore
+checkpoint.
 
-The current toolkit can inspect checkpoints, validate specs, check checkpoint
-contents, and plan loading. The current generic exporter is expected to refuse
-direct export for this spec because it does not provide `model.module` and
-`model.class_name`. That refusal is correct behavior.
+Observed result:
+
+- The PatchCore checkpoint was inspected successfully.
+- Anomalib official export produced ONNX successfully.
+- This toolkit validated the exported ONNX successfully.
+- This toolkit planned a TensorRT/`trtexec` command successfully.
+
+This confirms the source-first export strategy: Anomalib exported the model,
+and this toolkit validated and prepared the ONNX artifact for downstream
+deployment planning.
+
+For PatchCore, using Anomalib's official export path is preferred over forcing
+generic PyTorch export from this toolkit.
 
 PatchCore checkpoints may contain a `memory_bank`, feature extractor weights,
-post-processing thresholds, and training metadata. Direct full-model ONNX or
-TensorRT export may not be practical without a framework-specific loader or
-wrapper.
+post-processing thresholds, and training metadata. Direct full-model export may
+not be practical without a framework-specific loader or wrapper.
 
-Likely deployment paths:
-
-1. Use Anomalib's own export path to produce ONNX, then use this toolkit for
-   `validate-onnx` and `plan-tensorrt`.
-2. Implement a future Anomalib/PatchCore loader plugin in this toolkit.
-3. Export only the neural feature extractor and keep PatchCore scoring and
-   post-processing outside TensorRT.
+The generic exporter correctly refuses direct export for this spec because
+`model.module` and `model.class_name` are missing, and no framework-specific
+loader is implemented. This refusal is intentional and not a project failure.
 
 ## Manual PC Commands
 
@@ -35,7 +39,7 @@ python -m converter.cli export-onnx specs/patchcore_cable_coreset_0_1.yaml --all
 
 The export command should refuse or fail clearly because `model.module` and
 `model.class_name` are missing, or because a framework-specific loader is not
-implemented. This is expected and should not be treated as a project failure.
+implemented. This is expected.
 
 ## If Anomalib Exports ONNX Separately
 

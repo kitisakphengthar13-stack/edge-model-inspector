@@ -2,12 +2,12 @@
 
 - [ ] `git status` is clean
 - [ ] `validate-spec` passes
-- [ ] `dry-run-model` passes
-- [ ] `export-onnx` passes
+- [ ] `dry-run-model` passes when source code is available and trusted
+- [ ] `export-onnx` passes, or an official source-framework exporter produced ONNX
+- [ ] ONNX artifact exists
 - [ ] `validate-onnx` passes
-- [ ] `plan-tensorrt` passes
-- [ ] `artifacts/simple_classifier_dryrun/model.onnx` exists
-- [ ] `docs/JETSON.md` exists
+- [ ] optional `plan-tensorrt` command checked
+- [ ] target-side TensorRT build will be performed on Jetson with `trtexec`
 - [ ] repo is pushed or copied to Jetson
 - [ ] do not copy large `.pt`/`.pth`/`.ckpt` files unless needed
 

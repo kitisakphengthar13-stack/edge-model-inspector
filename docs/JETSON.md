@@ -1,6 +1,14 @@
 # Jetson TensorRT Notes
 
-This project keeps PC-side preparation separate from target-side TensorRT work.
+Jetson/TensorRT is a downstream deployment step. The toolkit's core output is a
+validated ONNX artifact. TensorRT engine building is manual today, or future
+optional automation on the target device.
+
+This toolkit does not replace `trtexec`. `trtexec` is the authoritative
+TensorRT build tool.
+
+Do not treat TensorRT engine files as portable artifacts. Build them on the
+actual target device or a matching TensorRT, CUDA, and JetPack runtime.
 
 ## PC Responsibilities
 
@@ -9,7 +17,7 @@ This project keeps PC-side preparation separate from target-side TensorRT work.
 - Dry-run the PyTorch model when trusted imports are allowed.
 - Export ONNX.
 - Validate ONNX with ONNX Runtime CPU inference.
-- Plan the TensorRT build command.
+- Optionally generate a TensorRT/`trtexec` build plan.
 
 ## Jetson Responsibilities
 
@@ -17,10 +25,6 @@ This project keeps PC-side preparation separate from target-side TensorRT work.
 - Build the TensorRT engine from ONNX.
 - Benchmark the engine.
 - Save build logs, benchmark logs, and deployment metadata.
-
-ONNX is the portable artifact. TensorRT engine files are target-specific and
-should be built on the actual target device or a matching TensorRT, CUDA, and
-JetPack runtime.
 
 ## PC-Side Commands
 
@@ -70,5 +74,5 @@ trtexec \
   --maxShapes=input:4x3x2x2
 ```
 
-Phase 8 will later add a `build-tensorrt` command that checks `trtexec`, runs
-the build, and saves logs and metadata.
+Future optional automation can add a target-side command that checks `trtexec`,
+runs the build, and saves logs and metadata.
