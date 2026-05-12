@@ -12,6 +12,10 @@ from .checkpoint import (
     summarize_loaded_checkpoint,
 )
 from .dry_run import run_model_dry_run
+from .export_assessment import (
+    assess_export_from_model_path,
+    assess_export_from_spec,
+)
 from .inspect_pt import inspect_checkpoint
 from .load_plan import print_loading_plan
 from .onnx_export import export_onnx_from_spec
@@ -61,6 +65,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate_spec_parser.add_argument("path", help="Path to the YAML spec file.")
     validate_spec_parser.set_defaults(func=validate_spec_command)
+
+    assess_export_parser = subparsers.add_parser(
+        "assess-export",
+        help=(
+            "Assess recommended export route, official exporter likelihood, "
+            "and toolkit generic exporter feasibility without running exporters."
+        ),
+    )
+    assess_export_parser.add_argument(
+        "path", help="Path to a spec YAML file or PyTorch checkpoint/model file."
+    )
+    assess_export_parser.add_argument(
+        "--target-format",
+        choices=("onnx", "tflite", "savedmodel"),
+        help="Planning target format. Default: spec conversion.target_format or onnx.",
+    )
+    assess_export_parser.add_argument(
+        "--unsafe-load",
+        action="store_true",
+        help="Allow unsafe pickle loading for checkpoint-path assessment only.",
+    )
+    assess_export_parser.add_argument(
+        "--max-items",
+        type=int,
+        default=80,
+        help="Maximum checkpoint hint items for model-path assessment. Default: 80.",
+    )
+    assess_export_parser.set_defaults(func=assess_export_command)
 
     plan_load_parser = subparsers.add_parser(
         "plan-load",
@@ -266,6 +298,32 @@ def validate_spec_command(args: argparse.Namespace) -> int:
     return 0 if result.valid else 2
 
 
+def assess_export_command(args: argparse.Namespace) -> int:
+    if args.max_items < 1:
+        print("Error: --max-items must be at least 1", file=sys.stderr)
+        return 1
+
+    path = Path(args.path)
+    try:
+        if path.suffix.lower() in {".yaml", ".yml"}:
+            result = assess_export_from_spec(
+                str(path), target_format=args.target_format
+            )
+        else:
+            result = assess_export_from_model_path(
+                str(path),
+                target_format=args.target_format or "onnx",
+                unsafe_load=args.unsafe_load,
+                max_items=args.max_items,
+            )
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
+    print_export_assessment(result)
+    return 0
+
+
 def plan_load_command(args: argparse.Namespace) -> int:
     result = _validate_spec_or_report(Path(args.path))
     if result is None:
@@ -451,6 +509,93 @@ def _print_spec_warnings(result: SpecValidationResult) -> None:
     print_section("Spec warnings")
     for warning in result.warnings:
         print(f"- {warning}")
+
+
+def print_export_assessment(result: dict[str, Any]) -> None:
+    detected = result["detected_source"]
+    official = result["official_source_exporter"]
+    toolkit = result["toolkit_generic_exporter"]
+    recommendation = result["recommended_route"]
+
+    print_section("Export capability assessment")
+    print(f"Input mode: {result['input_mode']}")
+    print(f"Path: {result['path']}")
+    print(f"Requested target format: {result['requested_target_format']}")
+    if result.get("load_mode"):
+        print(f"Checkpoint load mode: {result['load_mode']}")
+    if result.get("load_warnings"):
+        print("Load warnings:")
+        _print_list(result["load_warnings"])
+
+    print_section("Detected source")
+    print(f"Framework: {detected['framework']}")
+    print(f"Model family: {detected['model_family']}")
+    print(f"Task: {detected['task']}")
+    print(f"Status: {detected['status']}")
+    print(f"Confidence: {detected['confidence']}")
+    print("Evidence:")
+    _print_list(detected.get("evidence", []))
+
+    print_section("Official source exporter")
+    print(f"Status: {official['status']}")
+    print(f"Provider: {official['provider'] or '-'}")
+    print(f"Target format: {official['target_format']}")
+    print(f"Confidence: {official['confidence']}")
+    print("Evidence:")
+    _print_list(official.get("evidence", []))
+    print("Blockers:")
+    _print_list(official.get("blockers", []))
+    print("Unknowns:")
+    _print_list(official.get("unknowns", []))
+
+    print_section("Toolkit generic exporter")
+    print(f"Status: {toolkit['status']}")
+    print(f"Target format: {toolkit['target_format']}")
+    print(f"Confidence: {toolkit['confidence']}")
+    print("Evidence:")
+    _print_list(toolkit.get("evidence", []))
+    print("Blockers:")
+    _print_list(toolkit.get("blockers", []))
+    print("Unknowns:")
+    _print_list(toolkit.get("unknowns", []))
+
+    print_section("Recommended route")
+    print(f"Route: {recommendation['route']}")
+    print(f"Confidence: {recommendation['confidence']}")
+    print("Reason:")
+    _print_list(recommendation.get("reason", []))
+
+    print_section("Next suggested action")
+    _print_list(_next_suggested_actions(result))
+
+
+def _print_list(values: list[Any]) -> None:
+    if values:
+        for value in values:
+            print(f"- {value}")
+    else:
+        print("- None")
+
+
+def _next_suggested_actions(result: dict[str, Any]) -> list[str]:
+    route = result["recommended_route"]["route"]
+    provider = result["official_source_exporter"].get("provider")
+    target_format = result["requested_target_format"]
+    if route == "official_source_exporter":
+        provider_label = provider or "source framework"
+        actions = [f"use the {provider_label} official {target_format} exporter first"]
+        if target_format == "onnx":
+            actions.append("then validate the produced ONNX with validate-onnx")
+        else:
+            actions.append(
+                f"treat {target_format} as planning-only; this toolkit does not export or validate it yet"
+            )
+        return actions
+    if route == "toolkit_generic_exporter":
+        return ["use python -m converter.cli export-onnx with the assessed spec"]
+    if result["input_mode"] == "checkpoint":
+        return ["create or refine a spec before attempting export"]
+    return ["review blockers and unknowns before choosing an export route"]
 
 
 def load_checkpoint(path: Path, unsafe_load: bool = False) -> Any:

@@ -25,6 +25,27 @@ The generic exporter correctly refuses direct export for this spec because
 `model.module` and `model.class_name` are missing, and no framework-specific
 loader is implemented. This refusal is intentional and not a project failure.
 
+## Export Capability Assessment
+
+The non-executing assessment command should recommend the same route used in
+the real experiment:
+
+```bash
+python -m converter.cli assess-export specs/patchcore_cable_coreset_0_1.yaml
+```
+
+Expected reasoning:
+
+- source framework: Anomalib
+- model family: PatchCore
+- official ONNX exporter route: preferred first
+- toolkit generic exporter: blocked in the current spec because
+  `model.module` and `model.class_name` are not provided, and no
+  framework-specific loader/wrapper is implemented
+
+This matches the observed result: Anomalib produced ONNX, then this toolkit
+validated the exported ONNX and planned the downstream TensorRT command.
+
 ## Manual PC Commands
 
 ```bash

@@ -42,6 +42,10 @@ This project uses a source-first export strategy:
 3. If neither works, the toolkit still provides checkpoint inspection and
    deployment analysis to explain what is missing.
 
+Official source-library exporters and this toolkit's generic exporter are
+separate routes. Use `assess-export` to make that distinction explicit before
+choosing an export path.
+
 The goal is not to force every model through one converter. The goal is to
 produce a reliable, validated ONNX artifact using the most appropriate export
 path.
@@ -69,6 +73,9 @@ python -m converter.cli inspect models/model.ckpt --max-items 120
 python -m converter.cli inspect models/model.pt --unsafe-load
 
 python -m converter.cli validate-spec specs/example_simple_classifier_dryrun.yaml
+python -m converter.cli assess-export specs/patchcore_cable_coreset_0_1.yaml
+python -m converter.cli assess-export specs/yolo26n_task_detect.yaml
+python -m converter.cli assess-export specs/example_simple_classifier_dryrun.yaml
 python -m converter.cli check-checkpoint specs/example_patchcore_cable.yaml --max-items 80
 python -m converter.cli plan-load specs/patchcore_cable_coreset_0_1.yaml
 
@@ -107,6 +114,39 @@ missing contract:
 
 The spec schema is intentionally generic and extensible. Unknown custom tasks
 and extra sections are allowed.
+
+## Export Capability Assessment
+
+`assess-export` evaluates export-route options without running exporters,
+importing model code, instantiating models, or creating deployment artifacts.
+It reports:
+
+- detected or declared source framework and model family
+- whether an official source-library exporter route is known, likely, unknown,
+  blocked, or not applicable
+- whether this toolkit's generic PyTorch-to-ONNX exporter has enough spec
+  information to be attempted
+- recommended route, evidence, blockers, and unknowns
+
+Spec-based assessment is preferred because the spec contains the model
+construction, checkpoint loading, input, output, and target-format contract:
+
+```bash
+python -m converter.cli assess-export specs/patchcore_cable_coreset_0_1.yaml
+python -m converter.cli assess-export specs/example_simple_classifier_dryrun.yaml
+```
+
+Checkpoint-path assessment is preliminary and lower confidence because a
+checkpoint alone usually does not contain the full export contract:
+
+```bash
+python -m converter.cli assess-export path/to/model.pt --unsafe-load
+```
+
+The assessment is conservative. `known_from_registry` means the framework has a
+known official route in principle; it does not mean the installed version or
+specific model has been verified. `likely` is not `verified`. External exporters
+such as Anomalib or Ultralytics are not executed by this command.
 
 ## Dry Run and ONNX Export
 
@@ -151,6 +191,16 @@ TensorRT `.engine` files are target-specific artifacts and are intentionally not
 produced by the core PC-side workflow. Build them on the actual target device,
 such as NVIDIA Jetson, using TensorRT tools like `trtexec`.
 
+## Future TensorFlow/TFLite Direction
+
+TFLite and TensorFlow SavedModel may become future downstream planning or
+validation targets, especially for Raspberry Pi-class deployments. They are not
+implemented now, and TensorFlow is not a base dependency.
+
+The project remains ONNX-core. Future TFLite support should remain source-first
+when libraries such as Ultralytics provide official TFLite exporters. Generic
+ONNX-to-TFLite bridges are not current core scope.
+
 ## Real PatchCore Checkpoint Testing
 
 A real PatchCore inspection/planning spec is available at
@@ -161,6 +211,17 @@ For PatchCore, the preferred path is source-first export: use Anomalib's
 official ONNX export when available, then use this toolkit for ONNX validation
 and optional TensorRT planning. Direct generic export is expected to require
 future Anomalib/PatchCore-specific loader support.
+
+## Real YOLO Detection Checkpoint Testing
+
+A real Ultralytics YOLO detection example is documented at
+[docs/YOLO_REAL_TEST.md](docs/YOLO_REAL_TEST.md). The spec is
+`specs/yolo26n_task_detect.yaml`.
+
+This case demonstrates checkpoint inspection, official Ultralytics ONNX export,
+ONNX validation with this toolkit, and export-route assessment. It complements
+the PatchCore real test with a different source framework, task, and output
+structure.
 
 ## Jetson TensorRT Build Notes
 
