@@ -1,138 +1,96 @@
 # PyTorch Model Inspection and ONNX Preparation Toolkit
 
-Local CLI toolkit for inspecting PyTorch checkpoints, defining model specs,
-exporting ONNX when possible, and validating ONNX inference before edge
-deployment.
+A local CLI toolkit for inspecting PyTorch checkpoints, assessing the right ONNX
+export route, using official source-library exporters when available, falling
+back to guarded generic PyTorch-to-ONNX export when appropriate, and validating
+ONNX artifacts before downstream deployment.
 
-This project does not replace framework-specific exporters such as Anomalib,
-Ultralytics, OpenVINO tools, or TensorRT `trtexec`. It provides a structured
-workflow to inspect models and prepare validated ONNX artifacts for downstream
-deployment.
+This project does **not** claim to automatically convert every `.pt`, `.pth`, or
+`.ckpt` file into ONNX. PyTorch checkpoint files can store very different
+things, and some models are best exported through their original framework.
+
+## What This Solves
+
+PyTorch model files are often ambiguous: a file may be a raw `state_dict`, a
+training checkpoint, a full model object, a PyTorch Lightning checkpoint, or a
+framework-specific artifact. This toolkit makes that uncertainty explicit and
+turns it into a repeatable ONNX preparation workflow:
+
+- inspect checkpoint structure and deployment signals
+- validate a model spec before running trusted code
+- assess whether an official source-library ONNX exporter should be used
+- attempt generic PyTorch-to-ONNX export only when the spec is sufficient
+- validate ONNX files with ONNX checker and ONNX Runtime inference
 
 ## What This Project Is / Is Not
 
 This project is:
 
 - a PyTorch checkpoint inspection toolkit
-- a model spec validation workflow
-- a guarded PyTorch dry-run tool
-- an ONNX export and ONNX Runtime validation workflow
-- an optional TensorRT deployment planning helper
+- a spec-driven ONNX preparation workflow
+- an export-route assessment tool
+- a guarded generic PyTorch-to-ONNX fallback exporter
+- an ONNX validation tool
 
 This project is not:
 
-- a universal `.pt`/`.ckpt` converter
-- a replacement for Anomalib, Ultralytics, OpenVINO, or TensorRT
-- a TensorRT engine builder in the core PC workflow
-- a tool that guarantees every model can be exported automatically
-
-## Export Strategy
-
-This project uses a source-first export strategy:
-
-1. Prefer the official exporter from the source framework/library.
-   - For Anomalib models, use Anomalib export when available.
-   - For Ultralytics models, use Ultralytics export when available.
-   - For other frameworks, use their official export path when available.
-2. Use this toolkit's generic PyTorch-to-ONNX exporter as a fallback only when:
-   - the model can be instantiated from module/class
-   - checkpoint loading is defined
-   - input/output spec is provided
-   - the model can pass dry-run forward
-3. If neither works, the toolkit still provides checkpoint inspection and
-   deployment analysis to explain what is missing.
-
-Official source-library exporters and this toolkit's generic exporter are
-separate routes. Use `assess-export` to make that distinction explicit before
-choosing an export path.
-
-The goal is not to force every model through one converter. The goal is to
-produce a reliable, validated ONNX artifact using the most appropriate export
-path.
+- a universal `.pt` / `.pth` / `.ckpt` converter
+- a replacement for Anomalib, Ultralytics, or other source frameworks
+- an automatic exporter for every model architecture
+- a TensorRT engine builder
+- a collection of runtime-specific deployment backends
 
 ## Core Workflow
 
-- Phase 1: Checkpoint Inspection
-- Phase 2: Model Spec Validation
-- Phase 3: Checkpoint Loading Analysis
-- Phase 4: Safe PyTorch Dry Run
-- Phase 5: ONNX Export
-- Phase 6: ONNX Validation
+1. Inspect a PyTorch checkpoint.
+2. Describe model construction, checkpoint loading, input, output, and export
+   intent in a spec.
+3. Assess the recommended ONNX export route.
+4. Use the official source-library ONNX exporter first when available.
+5. Use this toolkit's generic PyTorch-to-ONNX exporter only when the spec has
+   enough information and a dry-run forward pass succeeds.
+6. Validate the resulting ONNX artifact with ONNX checker and ONNX Runtime.
 
-Optional deployment notes/helpers:
+## Export Strategy
 
-- TensorRT build planning helper
-- Jetson `trtexec` documentation
-- target-side TensorRT build on the target device or matching runtime
+The project uses a source-first ONNX export strategy.
 
-## Usage
+Prefer the official exporter from the source framework/library:
 
-```bash
-python -m converter.cli inspect models/model.pt
-python -m converter.cli inspect models/model.ckpt --max-items 120
-python -m converter.cli inspect models/model.pt --unsafe-load
+- Anomalib models should use Anomalib export when available.
+- Ultralytics YOLO models should use Ultralytics export when available.
+- Other framework-specific models should use their official ONNX path when one
+  exists.
 
-python -m converter.cli validate-spec specs/example_simple_classifier_dryrun.yaml
-python -m converter.cli assess-export specs/patchcore_cable_coreset_0_1.yaml
-python -m converter.cli assess-export specs/yolo26n_task_detect.yaml
-python -m converter.cli assess-export specs/example_simple_classifier_dryrun.yaml
-python -m converter.cli check-checkpoint specs/example_patchcore_cable.yaml --max-items 80
-python -m converter.cli plan-load specs/patchcore_cable_coreset_0_1.yaml
+Use this toolkit's generic PyTorch-to-ONNX exporter only as a fallback when:
 
-python -m converter.cli dry-run-model specs/example_simple_classifier_dryrun.yaml --allow-imports
-python -m converter.cli export-onnx specs/example_simple_classifier_dryrun.yaml --allow-imports
-python -m converter.cli validate-onnx artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml
-```
+- `model.module` and `model.class_name` are available
+- checkpoint loading is defined
+- input and output specs are provided
+- a guarded PyTorch dry-run forward pass succeeds
 
-## Checkpoint Inspection
-
-PyTorch checkpoint files are not all the same. A `.pt`, `.pth`, or `.ckpt` file
-may contain:
-
-- a full PyTorch model object
-- a raw `state_dict`
-- a training checkpoint dictionary
-- a PyTorch Lightning checkpoint
-- a TorchScript archive
-- a custom dictionary
-
-Raw `state_dict` files cannot be exported by themselves without matching model
-architecture code and loading rules.
-
-## Model Specs
-
-Checkpoint inspection alone is not enough for export. A spec describes the
-missing contract:
-
-- model identity
-- checkpoint loading rule
-- model construction hints
-- conversion strategy
-- input shape and dtype
-- output names
-- optional preprocessing, postprocessing, runtime assets, and metadata
-
-The spec schema is intentionally generic and extensible. Unknown custom tasks
-and extra sections are allowed.
+Official source-library exporters and the toolkit generic exporter are separate
+routes. The goal is not to force every model through one converter; it is to
+produce a reliable, validated ONNX artifact through the most appropriate path.
 
 ## Export Capability Assessment
 
-`assess-export` evaluates export-route options without running exporters,
-importing model code, instantiating models, or creating deployment artifacts.
+`assess-export` is a non-executing analysis command. It does not import model
+code, instantiate models, load checkpoints from specs, run external exporters,
+or create artifacts.
+
 It reports:
 
 - detected or declared source framework and model family
-- whether an official source-library exporter route is known, likely, unknown,
-  blocked, or not applicable
-- whether this toolkit's generic PyTorch-to-ONNX exporter has enough spec
-  information to be attempted
+- whether an official source-library ONNX exporter route is known or likely
+- whether this toolkit's generic PyTorch-to-ONNX exporter can be attempted
 - recommended route, evidence, blockers, and unknowns
 
-Spec-based assessment is preferred because the spec contains the model
-construction, checkpoint loading, input, output, and target-format contract:
+Examples:
 
 ```bash
 python -m converter.cli assess-export specs/patchcore_cable_coreset_0_1.yaml
+python -m converter.cli assess-export specs/yolo26n_task_detect.yaml
 python -m converter.cli assess-export specs/example_simple_classifier_dryrun.yaml
 ```
 
@@ -143,88 +101,80 @@ checkpoint alone usually does not contain the full export contract:
 python -m converter.cli assess-export path/to/model.pt --unsafe-load
 ```
 
-The assessment is conservative. `known_from_registry` means the framework has a
-known official route in principle; it does not mean the installed version or
-specific model has been verified. `likely` is not `verified`. External exporters
-such as Anomalib or Ultralytics are not executed by this command.
+## Main CLI Examples
 
-## Dry Run and ONNX Export
+```bash
+python -m converter.cli inspect models/model.pt
+python -m converter.cli inspect models/model.ckpt --max-items 120
+python -m converter.cli inspect models/model.pt --unsafe-load
 
-`dry-run-model` and `export-onnx` may import local user code, so both are guarded
-with explicit flags. `export-onnx` requires `--allow-imports` and only works when
-the spec contains enough information to instantiate the PyTorch model and run a
-forward pass.
+python -m converter.cli validate-spec specs/example_simple_classifier_dryrun.yaml
+python -m converter.cli assess-export specs/example_simple_classifier_dryrun.yaml
+python -m converter.cli plan-load specs/patchcore_cable_coreset_0_1.yaml
 
-Actual ONNX export requires `onnx` and `onnxscript` from `requirements.txt`.
-ONNX Runtime validation uses `onnxruntime`.
+python -m converter.cli dry-run-model specs/example_simple_classifier_dryrun.yaml --allow-imports
+python -m converter.cli export-onnx specs/example_simple_classifier_dryrun.yaml --allow-imports
+python -m converter.cli validate-onnx artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml
+```
+
+`dry-run-model` and `export-onnx` may import local user code, so both are
+guarded with explicit flags. Use them only for trusted local modules.
 
 ## ONNX Validation
 
-`validate-onnx` checks exported ONNX files before downstream deployment. It
-loads the ONNX file, runs `onnx.checker.check_model`, creates an ONNX Runtime
-CPU session, builds dummy input, and runs inference.
+`validate-onnx` checks exported ONNX files before downstream deployment. It:
 
-It does not import user modules, load checkpoints, execute custom loaders, or
-build TensorRT. PyTorch-vs-ONNX numerical comparison can be added later.
+- loads the ONNX file
+- runs `onnx.checker.check_model`
+- creates an ONNX Runtime CPU session
+- builds dummy input from the spec or CLI arguments
+- runs inference
+- prints readable input/output summaries
 
-## Optional: TensorRT Deployment Planning
+It does not import user modules, load checkpoints, execute source-framework
+exporters, or build deployment engines.
 
-`plan-tensorrt` generates a TensorRT/`trtexec` build plan from an ONNX file. It
-does not run `trtexec`, does not require TensorRT, does not require Jetson
-hardware, and does not create engine files.
+## Real Case Studies
 
-```bash
-python -m converter.cli plan-tensorrt artifacts/simple_classifier_dryrun/model.onnx
-python -m converter.cli plan-tensorrt artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml --target orin_nano --precision fp16
-python -m converter.cli plan-tensorrt artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml --target orin_nano --precision fp16 --workspace-mb 2048
-python -m converter.cli plan-tensorrt artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml --target orin_nano --precision fp16 --min-shape 1x3x2x2 --opt-shape 1x3x2x2 --max-shape 4x3x2x2
-```
+### PatchCore / Anomalib
 
-Precision behavior:
+See [docs/PATCHCORE_REAL_TEST.md](docs/PATCHCORE_REAL_TEST.md) and
+`specs/patchcore_cable_coreset_0_1.yaml`.
 
-- `fp32`: no `trtexec` precision flag
-- `fp16`: adds `--fp16`
-- `int8`: adds `--int8`, but calibration or explicit quantization is not
-  implemented
+A real Anomalib PatchCore checkpoint was inspected, exported to ONNX with the
+official Anomalib exporter, and validated with this toolkit. `assess-export`
+recommends the official Anomalib ONNX route first, while the toolkit generic
+exporter is intentionally blocked for the current spec because module/class
+construction is not provided.
 
-TensorRT `.engine` files are target-specific artifacts and are intentionally not
-produced by the core PC-side workflow. Build them on the actual target device,
-such as NVIDIA Jetson, using TensorRT tools like `trtexec`.
+### YOLO / Ultralytics
 
-## Future TensorFlow/TFLite Direction
-
-TFLite and TensorFlow SavedModel may become future downstream planning or
-validation targets, especially for Raspberry Pi-class deployments. They are not
-implemented now, and TensorFlow is not a base dependency.
-
-The project remains ONNX-core. Future TFLite support should remain source-first
-when libraries such as Ultralytics provide official TFLite exporters. Generic
-ONNX-to-TFLite bridges are not current core scope.
-
-## Real PatchCore Checkpoint Testing
-
-A real PatchCore inspection/planning spec is available at
-`specs/patchcore_cable_coreset_0_1.yaml`. See
-[docs/PATCHCORE_REAL_TEST.md](docs/PATCHCORE_REAL_TEST.md).
-
-For PatchCore, the preferred path is source-first export: use Anomalib's
-official ONNX export when available, then use this toolkit for ONNX validation
-and optional TensorRT planning. Direct generic export is expected to require
-future Anomalib/PatchCore-specific loader support.
-
-## Real YOLO Detection Checkpoint Testing
-
-A real Ultralytics YOLO detection example is documented at
-[docs/YOLO_REAL_TEST.md](docs/YOLO_REAL_TEST.md). The spec is
+See [docs/YOLO_REAL_TEST.md](docs/YOLO_REAL_TEST.md) and
 `specs/yolo26n_task_detect.yaml`.
 
-This case demonstrates checkpoint inspection, official Ultralytics ONNX export,
-ONNX validation with this toolkit, and export-route assessment. It complements
-the PatchCore real test with a different source framework, task, and output
-structure.
+A real Ultralytics YOLO26n detection checkpoint was inspected, exported to ONNX
+with the official Ultralytics exporter, and validated with this toolkit.
+`assess-export` recommends the official Ultralytics ONNX route first, while the
+toolkit generic exporter is not the appropriate path for that spec.
 
-## Jetson TensorRT Build Notes
+## Optional Downstream TensorRT Planning
 
-PC can export and validate ONNX. Jetson or a matching target runtime should
-build TensorRT engines. See [docs/JETSON.md](docs/JETSON.md) for transfer
-guidance and manual `trtexec` examples.
+`plan-tensorrt` is a small downstream helper that generates a `trtexec` planning
+command from an existing ONNX artifact. It does not run `trtexec`, does not
+require TensorRT, and does not build engine files.
+
+```bash
+python -m converter.cli plan-tensorrt artifacts/simple_classifier_dryrun/model.onnx --spec specs/example_simple_classifier_dryrun.yaml --target orin_nano --precision fp16
+```
+
+TensorRT engine creation is outside the core ONNX workflow and should happen on
+the target device or a matching runtime environment.
+
+## Project Boundaries
+
+- ONNX is the core artifact format for this project.
+- Source-framework exporters are preferred when they are the authoritative route
+  for a model family.
+- Generic export is intentionally guarded and spec-driven.
+- Real exported ONNX artifacts may be kept local-only when they are large or
+  machine-specific.

@@ -6,7 +6,7 @@ This case demonstrates the source-first export strategy for an Ultralytics YOLO
 object detection checkpoint. The toolkit does not replace Ultralytics export:
 Ultralytics exports the `.pt` model to ONNX, then this toolkit inspects the
 checkpoint, validates the exported ONNX artifact, and assesses the recommended
-export route.
+ONNX export route.
 
 ## Source Model
 
@@ -29,7 +29,7 @@ python -m converter.cli inspect "<PATH_TO_YOLO_CHECKPOINT>" --max-items 120 --un
 
 ## Official Ultralytics ONNX Export
 
-The ONNX artifact was produced manually outside this toolkit with the official
+The ONNX artifact was produced outside this toolkit with the official
 Ultralytics exporter:
 
 ```bash
@@ -81,6 +81,6 @@ Expected reasoning:
 python -m converter.cli plan-tensorrt artifacts/yolo26n_task_detect/yolo26n.onnx --spec specs/yolo26n_task_detect.yaml --target orin_nano --precision fp16 --input-name images --min-shape 1x3x640x640 --opt-shape 1x3x640x640 --max-shape 1x3x640x640
 ```
 
-This is optional deployment planning only. The toolkit does not build TensorRT
-engines. TensorRT engine creation belongs on the target device or a matching
-TensorRT, CUDA, and runtime environment.
+This is optional downstream planning only. The toolkit does not run `trtexec`
+or build TensorRT engines. TensorRT engine creation belongs on the target
+device or a matching TensorRT, CUDA, and runtime environment.

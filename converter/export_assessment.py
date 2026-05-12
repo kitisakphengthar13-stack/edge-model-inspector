@@ -12,7 +12,7 @@ from .inspect_pt import (
 )
 from .spec import validate_spec_file
 
-SUPPORTED_TARGET_FORMATS = {"onnx", "tflite", "savedmodel"}
+SUPPORTED_TARGET_FORMATS = {"onnx"}
 EXECUTABLE_TOOLKIT_ONNX_STRATEGIES = {"full_model", "feature_extractor_only"}
 EXECUTABLE_CHECKPOINT_LOAD_MODES = {"none", "safe_weights_only", "unsafe_trusted_local"}
 
@@ -25,14 +25,6 @@ FRAMEWORK_CAPABILITY_REGISTRY: dict[str, dict[str, Any]] = {
                 "status": "known_from_registry",
                 "confidence": "high",
                 "summary": "Ultralytics provides a source-library ONNX export route for supported models.",
-            },
-            "tflite": {
-                "status": "known_from_registry",
-                "confidence": "medium",
-                "summary": (
-                    "Ultralytics has source-library TFLite export routes for supported "
-                    "models, but this toolkit does not execute or validate them yet."
-                ),
             },
         },
         "preferred_route": "official_source_exporter",
@@ -169,8 +161,6 @@ def _resolve_target_format(target_format: str | None, spec: dict[str, Any]) -> s
 
 def _normalize_target_format(value: str) -> str:
     normalized = value.lower().replace("_", "").replace("-", "")
-    if normalized == "saved_model":
-        normalized = "savedmodel"
     if normalized not in SUPPORTED_TARGET_FORMATS:
         supported = ", ".join(sorted(SUPPORTED_TARGET_FORMATS))
         raise RuntimeError(f"unsupported target format '{value}'. Supported: {supported}")

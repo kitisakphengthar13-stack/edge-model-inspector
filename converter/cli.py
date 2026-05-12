@@ -69,17 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
     assess_export_parser = subparsers.add_parser(
         "assess-export",
         help=(
-            "Assess recommended export route, official exporter likelihood, "
-            "and toolkit generic exporter feasibility without running exporters."
+            "Assess the recommended ONNX export route without running exporters."
         ),
     )
     assess_export_parser.add_argument(
         "path", help="Path to a spec YAML file or PyTorch checkpoint/model file."
-    )
-    assess_export_parser.add_argument(
-        "--target-format",
-        choices=("onnx", "tflite", "savedmodel"),
-        help="Planning target format. Default: spec conversion.target_format or onnx.",
     )
     assess_export_parser.add_argument(
         "--unsafe-load",
@@ -157,7 +151,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     export_parser = subparsers.add_parser(
         "export-onnx",
-        help="Export a trusted local PyTorch model described by a spec to ONNX.",
+        help="Run the guarded generic PyTorch-to-ONNX fallback exporter from a spec.",
     )
     export_parser.add_argument("path", help="Path to the YAML spec file.")
     export_parser.add_argument(
@@ -204,7 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate_onnx_parser = subparsers.add_parser(
         "validate-onnx",
-        help="Validate an ONNX file and run ONNX Runtime CPU inference.",
+        help="Validate an ONNX artifact and run ONNX Runtime CPU inference.",
     )
     validate_onnx_parser.add_argument("path", help="Path to the ONNX file.")
     validate_onnx_parser.add_argument("--spec", help="Optional spec.yaml path.")
@@ -224,7 +218,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     plan_tensorrt_parser = subparsers.add_parser(
         "plan-tensorrt",
-        help="Generate a TensorRT/trtexec build plan without running TensorRT.",
+        help="Generate an optional downstream TensorRT/trtexec plan without running TensorRT.",
     )
     plan_tensorrt_parser.add_argument("path", help="Path to the ONNX file.")
     plan_tensorrt_parser.add_argument("--spec", help="Optional spec.yaml path.")
@@ -306,13 +300,10 @@ def assess_export_command(args: argparse.Namespace) -> int:
     path = Path(args.path)
     try:
         if path.suffix.lower() in {".yaml", ".yml"}:
-            result = assess_export_from_spec(
-                str(path), target_format=args.target_format
-            )
+            result = assess_export_from_spec(str(path))
         else:
             result = assess_export_from_model_path(
                 str(path),
-                target_format=args.target_format or "onnx",
                 unsafe_load=args.unsafe_load,
                 max_items=args.max_items,
             )
@@ -520,7 +511,7 @@ def print_export_assessment(result: dict[str, Any]) -> None:
     print_section("Export capability assessment")
     print(f"Input mode: {result['input_mode']}")
     print(f"Path: {result['path']}")
-    print(f"Requested target format: {result['requested_target_format']}")
+    print(f"Target format: {result['requested_target_format']}")
     if result.get("load_mode"):
         print(f"Checkpoint load mode: {result['load_mode']}")
     if result.get("load_warnings"):
@@ -583,14 +574,10 @@ def _next_suggested_actions(result: dict[str, Any]) -> list[str]:
     target_format = result["requested_target_format"]
     if route == "official_source_exporter":
         provider_label = provider or "source framework"
-        actions = [f"use the {provider_label} official {target_format} exporter first"]
-        if target_format == "onnx":
-            actions.append("then validate the produced ONNX with validate-onnx")
-        else:
-            actions.append(
-                f"treat {target_format} as planning-only; this toolkit does not export or validate it yet"
-            )
-        return actions
+        return [
+            f"use the {provider_label} official {target_format} exporter first",
+            "then validate the produced ONNX with validate-onnx",
+        ]
     if route == "toolkit_generic_exporter":
         return ["use python -m converter.cli export-onnx with the assessed spec"]
     if result["input_mode"] == "checkpoint":

@@ -1,34 +1,65 @@
 # Real PatchCore Checkpoint Test
 
-This document records the PC-side workflow for a real Anomalib PatchCore
-checkpoint.
+## Purpose
+
+This case demonstrates the source-first ONNX export strategy for an Anomalib
+PatchCore anomaly detection checkpoint. The toolkit does not replace Anomalib
+export. Anomalib produced the ONNX artifact, then this toolkit validated it and
+assessed the route.
+
+## Source Model
+
+- checkpoint path: `<PATH_TO_PATCHCORE_CHECKPOINT>`
+- task: anomaly detection
+- source framework: Anomalib
+- model family: PatchCore
+
+## Checkpoint Inspection
+
+A real PatchCore checkpoint was inspected successfully. PatchCore checkpoints
+may contain feature extractor weights, a memory bank, post-processing
+thresholds, and training metadata.
+
+Trusted local loading may be required for PyTorch Lightning or framework-owned
+checkpoints. Use `--unsafe-load` only for files from trusted sources.
+
+```bash
+python -m converter.cli inspect "<PATH_TO_PATCHCORE_CHECKPOINT>" --max-items 120 --unsafe-load
+```
+
+## Official Anomalib ONNX Export
+
+The ONNX artifact was produced outside this toolkit with Anomalib's official
+export path. The exact command depends on the Anomalib version and project
+configuration; conceptually it uses the trained PatchCore checkpoint as input
+and writes an ONNX model.
+
+Example shape of the workflow:
+
+```bash
+anomalib export --model Patchcore --export_type onnx --ckpt_path "<PATH_TO_PATCHCORE_CHECKPOINT>" --input_size "[256,256]"
+```
 
 Observed result:
 
-- The PatchCore checkpoint was inspected successfully.
 - Anomalib official export produced ONNX successfully.
-- This toolkit validated the exported ONNX successfully.
-- This toolkit planned a TensorRT/`trtexec` command successfully.
+- The toolkit validated the exported ONNX successfully.
+- The generic toolkit exporter correctly refused direct export for this spec.
 
-This confirms the source-first export strategy: Anomalib exported the model,
-and this toolkit validated and prepared the ONNX artifact for downstream
-deployment planning.
+## ONNX Validation With This Toolkit
 
-For PatchCore, using Anomalib's official export path is preferred over forcing
-generic PyTorch export from this toolkit.
+```bash
+python -m converter.cli validate-onnx "<PATH_TO_PATCHCORE_ONNX>" --input-shape 1,3,256,256 --input-name input --input-dtype float32
+```
 
-PatchCore checkpoints may contain a `memory_bank`, feature extractor weights,
-post-processing thresholds, and training metadata. Direct full-model export may
-not be practical without a framework-specific loader or wrapper.
+Observed ONNX outputs included:
 
-The generic exporter correctly refuses direct export for this spec because
-`model.module` and `model.class_name` are missing, and no framework-specific
-loader is implemented. This refusal is intentional and not a project failure.
+- `pred_score`
+- `pred_label`
+- `anomaly_map`
+- `pred_mask`
 
 ## Export Capability Assessment
-
-The non-executing assessment command should recommend the same route used in
-the real experiment:
 
 ```bash
 python -m converter.cli assess-export specs/patchcore_cable_coreset_0_1.yaml
@@ -36,36 +67,25 @@ python -m converter.cli assess-export specs/patchcore_cable_coreset_0_1.yaml
 
 Expected reasoning:
 
-- source framework: Anomalib
-- model family: PatchCore
-- official ONNX exporter route: preferred first
-- toolkit generic exporter: blocked in the current spec because
-  `model.module` and `model.class_name` are not provided, and no
-  framework-specific loader/wrapper is implemented
+- detected framework: Anomalib
+- detected model family: PatchCore
+- official ONNX exporter route should be preferred first
+- toolkit generic exporter is blocked in the current spec because
+  `model.module` and `model.class_name` are not provided
+- recommended route: official source exporter
 
-This matches the observed result: Anomalib produced ONNX, then this toolkit
-validated the exported ONNX and planned the downstream TensorRT command.
+This matches the real experiment: Anomalib exported the model, and this toolkit
+validated the ONNX artifact.
 
-## Manual PC Commands
+## Repository Spec
+
+The repository spec uses placeholders for local machine paths:
 
 ```bash
 python -m converter.cli validate-spec specs/patchcore_cable_coreset_0_1.yaml
-
-python -m converter.cli check-checkpoint specs/patchcore_cable_coreset_0_1.yaml --max-items 120
-
 python -m converter.cli plan-load specs/patchcore_cable_coreset_0_1.yaml
-
-python -m converter.cli export-onnx specs/patchcore_cable_coreset_0_1.yaml --allow-imports
 ```
 
-The export command should refuse or fail clearly because `model.module` and
-`model.class_name` are missing, or because a framework-specific loader is not
-implemented. This is expected.
-
-## If Anomalib Exports ONNX Separately
-
-```bash
-python -m converter.cli validate-onnx path/to/patchcore.onnx --spec specs/patchcore_cable_coreset_0_1.yaml
-
-python -m converter.cli plan-tensorrt path/to/patchcore.onnx --spec specs/patchcore_cable_coreset_0_1.yaml --target orin_nano --precision fp16
-```
+The spec is intended for validation and route assessment. Direct toolkit export
+is expected to refuse until a framework-specific loader/wrapper or explicit
+module/class construction is provided.
