@@ -10,7 +10,7 @@ export route.
 
 ## Source Model
 
-- checkpoint path: `D:/data_use/model/object_detection/pre_trained/yolo26n.pt`
+- checkpoint path: `<PATH_TO_YOLO_CHECKPOINT>`
 - task: object detection
 - source framework: Ultralytics
 
@@ -24,7 +24,7 @@ The toolkit identified the file as a checkpoint dictionary and reported object
 detection as a high-confidence task hint.
 
 ```bash
-python -m converter.cli inspect "D:\data_use\model\object_detection\pre_trained\yolo26n.pt" --max-items 120 --unsafe-load
+python -m converter.cli inspect "<PATH_TO_YOLO_CHECKPOINT>" --max-items 120 --unsafe-load
 ```
 
 ## Official Ultralytics ONNX Export
@@ -33,7 +33,7 @@ The ONNX artifact was produced manually outside this toolkit with the official
 Ultralytics exporter:
 
 ```bash
-yolo export model="D:\data_use\model\object_detection\pre_trained\yolo26n.pt" format=onnx imgsz=640 opset=18
+yolo export model="<PATH_TO_YOLO_CHECKPOINT>" format=onnx imgsz=640 opset=18
 ```
 
 Observed official export result:
@@ -42,12 +42,12 @@ Observed official export result:
 - ONNX input shape: `images: [1, 3, 640, 640]`
 - ONNX output shape: `output0: [1, 300, 6]`
 - ONNX file saved by Ultralytics before local copy:
-  `D:/data_use/model/object_detection/pre_trained/yolo26n.onnx`
+  `<PATH_TO_YOLO_ONNX>`
 
 ## ONNX Validation With This Toolkit
 
 ```bash
-python -m converter.cli validate-onnx "D:\data_use\model\object_detection\pre_trained\yolo26n.onnx" --input-shape 1,3,640,640
+python -m converter.cli validate-onnx "<PATH_TO_YOLO_ONNX>" --input-shape 1,3,640,640
 ```
 
 Observed result:

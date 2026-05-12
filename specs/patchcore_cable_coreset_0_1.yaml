@@ -1,7 +1,7 @@
 name: patchcore_cable_coreset_0_1
 task: anomaly_detection
 framework: anomalib
-checkpoint_path: D:/data_use/model/anomaly_detection/results/cable_coreset_0.1/Patchcore/MVTecAD/cable/v0/weights/lightning/model.ckpt
+checkpoint_path: "<PATH_TO_PATCHCORE_CHECKPOINT>"
 
 checkpoint:
   kind: lightning_checkpoint

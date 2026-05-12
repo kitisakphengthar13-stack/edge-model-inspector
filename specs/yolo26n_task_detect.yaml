@@ -1,7 +1,7 @@
 name: yolo26n_task_detect
 task: object_detection
 framework: ultralytics
-checkpoint_path: D:/data_use/model/object_detection/pre_trained/yolo26n.pt
+checkpoint_path: "<PATH_TO_YOLO_CHECKPOINT>"
 
 checkpoint:
   kind: checkpoint_dict

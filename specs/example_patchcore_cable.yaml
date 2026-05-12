@@ -2,7 +2,7 @@ name: patchcore_cable
 task: anomaly_detection
 description: Example only; this does not define the schema limits.
 framework: anomalib
-checkpoint_path: D:/data_use/model/anomaly_detection/results/cable/Patchcore/MVTecAD/cable/v0/weights/lightning/model.ckpt
+checkpoint_path: "<PATH_TO_PATCHCORE_CHECKPOINT>"
 
 checkpoint:
   kind: lightning_checkpoint
